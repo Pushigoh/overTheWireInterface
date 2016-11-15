@@ -1,0 +1,34 @@
+#!/bin/bash
+storageName="otwPasswords";
+storageLocation="./";
+sshpass="/usr/bin/sshpass"; #If this doesn't work, run "which sshpass" in your terminal and paste the output here
+
+storage=$storageLocation$storageName;
+started=false;
+passwords=false;
+#Check if password directory exists, create if it doesn't.
+for file in ./*; do
+	if [ $file == $storage ]; then
+		passwords=true;
+		break;
+	fi
+done
+if [ $passwords = false ]; then
+	mkdir otwPasswords;
+fi
+#Check for the current otw challenge, create if doesn't exist
+for file in $storage/*; do
+	if [ "$storage/"$1 == $file ]; then
+		started=true;
+		break;
+	fi
+done
+#get last password, or create list
+if [ $started = true ]; then
+	pass=$(tail -1 $storage/$1);
+	$sshpass -p $pass ssh bandit0@bandit.labs.overthewire.org
+else
+	touch $storage/$1;
+	echo $1"0" >> $storage/$1;
+fi
+echo $?
