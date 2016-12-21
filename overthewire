@@ -6,29 +6,53 @@ sshpass="/usr/bin/sshpass"; #If this doesn't work, run "which sshpass" in your t
 storage=$storageLocation$storageName;
 started=false;
 passwords=false;
+inProgress=true;
 #Check if password directory exists, create if it doesn't.
 for file in ./*; do
-	if [ $file == $storage ]; then
-		passwords=true;
-		break;
-	fi
+        if [ $file == $storage ]; then
+                passwords=true;
+                break;
+        fi
 done
 if [ $passwords = false ]; then
-	mkdir otwPasswords;
+        mkdir otwPasswords;
 fi
 #Check for the current otw challenge, create if doesn't exist
 for file in $storage/*; do
-	if [ "$storage/"$1 == $file ]; then
-		started=true;
-		break;
-	fi
+        if [ "$storage/"$1 == $file ]; then
+                started=true;
+                break;
+        fi
 done
 #get last password, or create list
-if [ $started = true ]; then
-	pass=$(tail -1 $storage/$1);
-	$sshpass -p $pass ssh bandit0@bandit.labs.overthewire.org
-else
-	touch $storage/$1;
-	echo $1"0" >> $storage/$1;
+if [ $started = false ]; then
+        touch $storage/$1;
+        echo $1"0:"$1"0" >> $storage/$1;
 fi
-echo $?
+while [ $inProgress ]; do
+        lastLine=$(tail -n 1 $storage/$1); #Format = $username:$pass
+        username=$(echo $lastLine | cut -f1 -d":");
+        pass=$(echo $lastLine | cut -f2 -d":");
+        $sshpass -p $pass ssh $username@$1.labs.overthewire.org;
+        if [ $? -eq 0  ]; then
+                echo "Paste the new password or hit CTRL-C to stop";
+                read answer;
+                echo $answer;
+                username=$1$(wc -l $storage | cut -f1 -d" ");
+                echo $username:$pass >> $storage;
+        else
+#delete incorrect password
+                head -n -1 $storage > temp.txt;
+                mv temp.txt $storage
+                rm temp.txt
+                echo "Incorrect password! Would you like to go back to your last save? Y|N";
+                read answer;
+                answer={$answer,,};
+                if [ $answer = "y" || $answer = "yes" ]; then
+                        echo $lastLine;
+                else
+                        working=false;
+                fi
+        fi
+        echo $?
+done
