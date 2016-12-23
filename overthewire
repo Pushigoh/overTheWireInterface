@@ -1,11 +1,13 @@
 #!/bin/bash
 storageName="otwPasswords";
 storageLocation="./";
+#Needs to be changed so which sshpass is run on startup
 sshpass="/usr/bin/sshpass"; #If this doesn't work, run "which sshpass" in your terminal and paste the output here
 
 storage=$storageLocation$storageName;
 started=false;
 passwords=false;
+inProgress=true;
 #Check if password directory exists, create if it doesn't.
 for file in ./*; do
 	if [ $file == $storage ]; then
@@ -24,11 +26,40 @@ for file in $storage/*; do
 	fi
 done
 #get last password, or create list
-if [ $started = true ]; then
-	pass=$(tail -1 $storage/$1);
-	$sshpass -p $pass ssh bandit0@bandit.labs.overthewire.org
-else
+if [ $started = false ]; then	
 	touch $storage/$1;
-	echo $1"0" >> $storage/$1;
+	echo $1"0:"$1"0" >> $storage/$1;
 fi
-echo $?
+while [ $inProgress = "true" ]; do
+	lastLine=$(tail -n 1 $storage/$1); #Format = $username:$pass
+	username=$(echo $lastLine | cut -f1 -d":");
+	pass=$(echo $lastLine | cut -f2 -d":");
+	$sshpass -p $pass ssh $username@$1.labs.overthewire.org;
+	if [ $? -eq 0  ]; then
+		echo "paste the password or type STOP;"
+		read answer;
+		if [ ${answer,,} = "stop" ]; then
+			inProgress=false;
+			echo "stopping"; #debug
+		else
+			username=$1$(wc -l $storage/$1 | cut -f1 -d" ");
+			echo $username:$answer >> $storage/$1;
+		fi
+	else
+#delete incorrect password
+		echo $(head -n -1 $storage/$1);
+		head -n -1 $storage/$1 >> $storage/temp.txt;
+		rm $storage/$1
+		mv $storage/temp.txt $storage/$1
+		echo "Incorrect password! Would you like to go back to your last save? Y|N";
+		read answer;
+		answer=${answer,,};
+		echo $answer;
+		if [ $answer = "y" ] || [ $answer = "yes" ]; then
+			echo $lastLine;
+		else
+			inProgress=false;
+			echo "leaving"; #debug
+		fi
+	fi			
+done	
